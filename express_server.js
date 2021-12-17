@@ -2,9 +2,20 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 const bodyParser = require("body-parser");
-var cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session')
+const bcrypt = require("bcryptjs")
+// var cookieParser = require('cookie-parser');
 const { request } = require("express");
-app.use(cookieParser())
+const { getUserByEmail} = require("./helpers.js")
+
+app.use(cookieSession({
+  name: 'session',
+  keys: ["grocery foods"],
+
+  // Cookie Options
+  maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
+// app.use(cookieParser())
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.set("view engine", "ejs")
@@ -50,20 +61,11 @@ const urlsForUser = function (id) {
   return userUrl;
 }
 
-const findemail = function (users, email) {
-  for (let user in users) {
-    if (users[user].email === email) {
-      return true
-    }
-  }
-  return false
-}
-
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
 app.get("/urls/new", (req, res) => {
-  const userId = req.cookies.user_id
+  const userId = req.session.user_id
   if (!userId) {
     return res.redirect("/urls")
   }
@@ -73,7 +75,7 @@ app.get("/urls/new", (req, res) => {
 
 });
 app.post("/urls", (req, res) => {
-  const userId = req.cookies.user_id
+  const userId = req.session.user_id
   if (!userId) {
     return res.redirect("/urls")
   }
@@ -85,7 +87,7 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortURL}`);         // Respond with 'Ok' (we will replace this)
 });
 app.get("/urls", (req, res) => {
-  const userId = req.cookies.user_id
+  const userId = req.session.user_id
   const user = users[userId]
   const userUrls = urlsForUser(userId)
   const templateVars = { user: user, urls: userUrls };
@@ -109,7 +111,7 @@ app.post("/register", (req, res) => {
   if (email === "" || password === "") {
     return res.status(400).send('None shall pass');
   }
-  const userEmailVerify = findemail(users, email)
+  const userEmailVerify = getUserByEmail(email, users)
   if (userEmailVerify) {
     return res.status(400).send('None shall pass');
   }
@@ -135,7 +137,7 @@ app.get("/urls/:shortURL", (req, res) => {
 
 });
 app.post("/urls/:shortURL/delete", (req, res) => { 
-  const userId = req.cookies.user_id
+  const userId = req.session.user_id
   console.log(req.body)
   //determine who the user that is making request 
   //if the user that is making request matches the action that there trying to take or the url there trying to edit
@@ -150,11 +152,14 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 })
 app.post("/login", (req, res) => {
 
-  const user = Object.values(users).find(user => user.email === req.body.email)
+  const user = getUserByEmail(req.body.email,users)
+
   console.log(req.body)
   const passwordsMatch = bcrypt.compareSync(req.body.password, user.password);
+  console.log("user ",user)
+  console.log("password match",passwordsMatch)
   if (user && passwordsMatch) {
-    res.cookie('user_id', user.id)
+    req.session.user_id = user.id;
     res.redirect("/urls")
   }
   else {
@@ -165,7 +170,7 @@ app.post("/login", (req, res) => {
 })
   
 app.post("/urls/:id", (req, res) => {
-  const userId = req.cookies.user_id
+  const userId = req.session.user_id 
   const urlId = req.params.id;
   console.log(urlId)
   const newLongUrl = req.body.longURL 
