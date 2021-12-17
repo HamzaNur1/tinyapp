@@ -104,24 +104,22 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  const userId = generateRandomString()
+  const userId = generateRandomString() // u3e4jj
   const email = req.body.email
   const password = req.body.password
   const hashedPassword = bcrypt.hashSync(password, 10);
   if (email === "" || password === "") {
-    return res.status(400).send('None shall pass');
+    return res.status(400).send('please enter a email and password correctly');
   }
   const userEmailVerify = getUserByEmail(email, users)
   if (userEmailVerify) {
-    return res.status(400).send('None shall pass');
+    return res.status(400).send('The user is already registered');
   }
   users[userId] = {
     id: userId,
     email: email,
     password: hashedPassword
   }
-  res.cookie("user_id", userId)
-  console.log(req.body)
   res.redirect('/urls')
 })
 
@@ -132,7 +130,7 @@ app.get("/urls.json", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL
   const longURL = urlDatabase[shortURL].longURL
-  const templateVars = { shortURL, longURL, user: req.cookies.user };
+  const templateVars = { shortURL, longURL, user: users[req.session.user_id]  };
   res.render("urls_show", templateVars);
 
 });
@@ -164,7 +162,6 @@ app.post("/login", (req, res) => {
   }
   else {
     res.status(403).send("user not found")
-
   }
 
 })
